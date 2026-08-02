@@ -91,8 +91,8 @@ def update(frame):
         # 5. Move the Oscillator (Gradient Descent on Energy)
         # Calculate local gradient of the energy envelope around the oscillator
         ix, iy = int(osc_x), int(osc_y)
+        osc_displacement = A * np.sin(omega * t)
         if 2 < ix < NRes-2 and 2 < iy < NRes-2:
-            osc_displacement = A * np.sin(omega * t)
             min_energy = float('inf')
             best_dx, best_dy = 0, 0
             
@@ -123,7 +123,6 @@ def update(frame):
         # 6. Apply Oscillator Forcing to the Membrane
         # We use a soft Gaussian footprint so the oscillator doesn't snap to integer grid lines
         footprint = np.exp(-((X - osc_x)**2 + (Y - osc_y)**2) / 2.0)
-        osc_displacement = A * np.sin(omega * t)
         
         # Force the local displacement (soft blending based on footprint)
         u_next = u_next * (1 - footprint) + footprint * osc_displacement
