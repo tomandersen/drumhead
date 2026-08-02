@@ -160,6 +160,13 @@ def update(frame):
         u_osc = u_next[iy, ix] * (1-fx)*(1-fy) + u_next[iy, ix+1] * fx*(1-fy) + \
                 u_next[iy+1, ix] * (1-fx)*fy + u_next[iy+1, ix+1] * fx*fy
         
+        
+        # now add some noise to the amplitude to help it escape local minima
+        random_kick = 0.5 *A* random.uniform(-1,1)
+        u_osc = u_osc + random_kick
+        
+
+        
         # Is the oscillator in phase with the wave or out of phase?
         # 
         if u_osc * osc_displacement <= 0:
@@ -173,10 +180,6 @@ def update(frame):
             else:
                 field_addition = min(diff, 0)
 
-        # now add some noise to the amplitude to help it escape local minima
-        random_kick = 0.01 * A * random.uniform(-1.0, 1.0)
-        field_addition = field_addition + random_kick
-        
         u_next = u_next * (1 - footprint) + footprint * field_addition
         
         # 7. Advance time
