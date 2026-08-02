@@ -22,7 +22,7 @@ freq = c / wavelength  # Driving frequency f
 omega = 2 * np.pi * freq
 
 # Movement Parameters
-drift_speed = 5     # How fast the oscillator moves down the energy gradient
+drift_speed = 6     # How fast the oscillator moves down the energy gradient
 
 # ==========================================
 # 2. INITIALIZATION
