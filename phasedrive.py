@@ -13,7 +13,7 @@ R = NRes/2 - 5               # Radius of the drum head
 c = 0.2                # Speed of sound on the membrane
 dx = 1.0               # Spatial step size
 dt = 0.2               # Time step (must satisfy Courant condition: c*dt/dx < 0.707)
-damping = 0.00005        # Slight damping to help standing waves stabilize
+damping = 0.00000        # Slight damping to help standing waves stabilize
 
 # Oscillator Parameters
 A = 2.0                # Amplitude of the oscillator (mm)
