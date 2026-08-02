@@ -1,3 +1,4 @@
+import signal
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -20,7 +21,7 @@ freq = c / wavelength  # Driving frequency f
 omega = 2 * np.pi * freq
 
 # Movement Parameters
-drift_speed = 2.35     # How fast the oscillator moves down the energy gradient
+drift_speed = 5.0     # How fast the oscillator moves down the energy gradient
 
 # ==========================================
 # 2. INITIALIZATION
@@ -92,26 +93,40 @@ def update(frame):
         # Calculate local gradient of the energy envelope around the oscillator
         ix, iy = int(osc_x), int(osc_y)
         osc_displacement = A * np.sin(omega * t)
+        osc_velocity = A * omega * np.cos(omega * t)
         if 2 < ix < NRes-2 and 2 < iy < NRes-2:
-            min_energy = float('inf')
-            best_dx, best_dy = 0, 0
+            # Bjerknes Force:
+            # the gradient of the pressure u_next combined with the amplitude of the driver
+            # gives us a force...
             
-            for dy in [-1, 0, 1]:
-                for dx_step in [-1, 0, 1]:
-                    nx, ny = ix + dx_step, iy + dy
-                    # Impedance proxy: squared difference between natural and forced displacement
-                    energy_req = (u_next[ny, nx] - osc_displacement)**2
-                    
-                    if energy_req < min_energy:
-                        min_energy = energy_req
-                        best_dx = dx_step
-                        best_dy = dy
-                        
-            # Move towards the point of minimum impedance
-            if best_dx != 0 or best_dy != 0:
-                norm = np.sqrt(best_dx**2 + best_dy**2)
-                osc_x += drift_speed * (best_dx / norm) * dt
-                osc_y += drift_speed * (best_dy / norm) * dt
+            # Helper to get gradient at a specific integer grid point
+            def get_grad(cx, cy):
+                gx = (u_next[cy, cx+1] - u_next[cy, cx-1]) / (2 * dx)
+                gy = (u_next[cy+1, cx] - u_next[cy-1, cx]) / (2 * dx)
+                return gx, gy
+                
+            gx00, gy00 = get_grad(ix, iy)
+            gx10, gy10 = get_grad(ix+1, iy)
+            gx01, gy01 = get_grad(ix, iy+1)
+            gx11, gy11 = get_grad(ix+1, iy+1)
+            
+            # Bilinearly interpolate the gradient to the exact sub-pixel oscillator position
+            fx = osc_x - ix
+            fy = osc_y - iy
+            
+            grad_x = (gx00 * (1-fx)*(1-fy) + gx10 * fx*(1-fy) + 
+                      gx01 * (1-fx)*fy + gx11 * fx*fy)
+            grad_y = (gy00 * (1-fx)*(1-fy) + gy10 * fx*(1-fy) + 
+                      gy01 * (1-fx)*fy + gy11 * fx*fy)
+                      
+            # The instantaneous Bjerknes force is proportional to the gradient of the field 
+            # times the instantaneous displacement (amplitude) of the driver.
+            force_x = -osc_displacement * grad_x
+            force_y = -osc_displacement * grad_y
+            
+            # Move the oscillator
+            osc_x += drift_speed * force_x * dt
+            osc_y += drift_speed * force_y * dt
             
             # Constrain to stay inside the drum
             dist_from_center = np.sqrt((osc_x - NRes/2)**2 + (osc_y - NRes/2)**2)
@@ -122,10 +137,40 @@ def update(frame):
 
         # 6. Apply Oscillator Forcing to the Membrane
         # We use a soft Gaussian footprint so the oscillator doesn't snap to integer grid lines
+        # We only need to go a few grid points away from the oscillation center, 
+        # no need to use the whole grid.  Radius of influence is 5 grid points.
+        
         footprint = np.exp(-((X - osc_x)**2 + (Y - osc_y)**2) / 2.0)
         
         # Force the local displacement (soft blending based on footprint)
-        u_next = u_next * (1 - footprint) + footprint * osc_displacement
+        # The oscillator will drive the wave, but no higher than its osc_displacement,
+        # so u_next will be at most osc_displacement times the footprint (which is 1 at the center).
+        # The wave can have higher amplitudes away from the oscillator if energy builds up there.
+        # amplitude of the oscilation added to the wave is zero if the u_max amplitude
+        # is already bigger than the osc_displacement.
+        # or perhaps an energy model. The particle can absorb or emit energy into the grid, 
+        # energy is conserved. It emits energy if the wave is pushing it, abosorbs when phase is matched
+        
+        # what is u_next at the location of the oscilator, properly interpolated?
+        ix, iy = int(osc_x), int(osc_y)
+        fx = osc_x - ix
+        fy = osc_y - iy
+        
+        u_osc = u_next[iy, ix] * (1-fx)*(1-fy) + u_next[iy, ix+1] * fx*(1-fy) + \
+                u_next[iy+1, ix] * (1-fx)*fy + u_next[iy+1, ix+1] * fx*fy
+        
+        # Is the oscillator in phase with the wave or out of phase?
+        # 
+        if u_osc * osc_displacement <= 0:
+            # we are out of phase, so we want to push the wave in the same direction as the oscillator
+            field_addition = osc_displacement
+        else:
+            # we are in phase, so we want to push the wave in the same direction as the oscillator
+            diff = osc_displacement - u_osc
+            field_addition = np.max(diff, 0)
+
+
+        u_next = u_next * (1 - footprint) + footprint * field_addition
         
         # 7. Advance time
         u_prev[:] = u
