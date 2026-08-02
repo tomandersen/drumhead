@@ -1,4 +1,5 @@
 import signal
+import random
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -7,7 +8,7 @@ import matplotlib.animation as animation
 # 1. SIMULATION PARAMETERS
 # ==========================================
 # Grid and Drum Head
-NRes = 200                # Grid resolution (N x N)
+NRes = 400                # Grid resolution (N x N)
 R = NRes/2 - 5               # Radius of the drum head
 c = 0.2                # Speed of sound on the membrane
 dx = 1.0               # Spatial step size
@@ -21,7 +22,7 @@ freq = c / wavelength  # Driving frequency f
 omega = 2 * np.pi * freq
 
 # Movement Parameters
-drift_speed = 3.0     # How fast the oscillator moves down the energy gradient
+drift_speed = 4     # How fast the oscillator moves down the energy gradient
 
 # ==========================================
 # 2. INITIALIZATION
@@ -40,7 +41,7 @@ u_prev = np.zeros((NRes, NRes))
 energy_envelope = np.zeros((NRes, NRes)) # Tracks time-averaged amplitude
 
 # Start the oscillator slightly off-center so it has a gradient to follow
-osc_x, osc_y = NRes/2 + 8.0, NRes/2 + 15.0 
+osc_x, osc_y = NRes/2 + 8.0, NRes/2 + NRes/4 
 
 # ==========================================
 # 3. SETUP VISUALIZATION
@@ -172,7 +173,10 @@ def update(frame):
             else:
                 field_addition = min(diff, 0)
 
-
+        # now add some noise to the amplitude to help it escape local minima
+        random_kick = 0.01 * A * random.uniform(-1.0, 1.0)
+        field_addition = field_addition + random_kick
+        
         u_next = u_next * (1 - footprint) + footprint * field_addition
         
         # 7. Advance time
@@ -182,7 +186,7 @@ def update(frame):
     # Update visual plots
     im.set_array(u)
     osc_marker.set_data([osc_x], [osc_y])
-    info_text.set_text(f"Driven Drum Head\nf = {freq:.3f} Hz, X = {osc_x:.2f}, Y = {osc_y:.2f}")
+    info_text.set_text(f"Driven Drum Head\nf = {freq:.3f} Hz, X = {osc_x:.5f}, Y = {osc_y:.5f}")
     
     return im, osc_marker, info_text
 
