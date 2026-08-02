@@ -22,7 +22,7 @@ freq = c / wavelength  # Driving frequency f
 omega = 2 * np.pi * freq
 
 # Movement Parameters
-drift_speed = 4     # How fast the oscillator moves down the energy gradient
+drift_speed = 5     # How fast the oscillator moves down the energy gradient
 
 # ==========================================
 # 2. INITIALIZATION
@@ -162,10 +162,10 @@ def update(frame):
         
         
         # now add some noise to the amplitude to help it escape local minima
-        # the random kick should be added to the oscilator amplitude, not the wave amplitude
+        # the random kick should be added to the wave amplitude
         # in addition the random noise needs to be at all frequencies, not just high frequency as it is now.
         random_kick = 0.5 *A* random.uniform(-1,1)
-        osc_displacement = osc_displacement + random_kick
+        u_osc = u_osc + random_kick
         
 
         
