@@ -7,11 +7,11 @@ import matplotlib.animation as animation
 # 1. SIMULATION PARAMETERS
 # ==========================================
 # Grid and Drum Head
-NRes = 300                # Grid resolution (N x N)
+NRes = 200                # Grid resolution (N x N)
 R = NRes/2 - 5               # Radius of the drum head
 c = 0.2                # Speed of sound on the membrane
 dx = 1.0               # Spatial step size
-dt = 0.4               # Time step (must satisfy Courant condition: c*dt/dx < 0.707)
+dt = 0.2               # Time step (must satisfy Courant condition: c*dt/dx < 0.707)
 damping = 0.00005        # Slight damping to help standing waves stabilize
 
 # Oscillator Parameters
@@ -21,7 +21,7 @@ freq = c / wavelength  # Driving frequency f
 omega = 2 * np.pi * freq
 
 # Movement Parameters
-drift_speed = 5.0     # How fast the oscillator moves down the energy gradient
+drift_speed = 3.0     # How fast the oscillator moves down the energy gradient
 
 # ==========================================
 # 2. INITIALIZATION
@@ -167,7 +167,10 @@ def update(frame):
         else:
             # we are in phase, so we want to push the wave in the same direction as the oscillator
             diff = osc_displacement - u_osc
-            field_addition = np.max(diff, 0)
+            if osc_displacement > 0:
+                field_addition = max(diff, 0)
+            else:
+                field_addition = min(diff, 0)
 
 
         u_next = u_next * (1 - footprint) + footprint * field_addition
@@ -184,5 +187,11 @@ def update(frame):
     return im, osc_marker, info_text
 
 # Run the animation
+# Comment out the animation for debugging:
 ani = animation.FuncAnimation(fig, update, frames=1000, interval=30, blit=True)
 plt.show()
+
+# Add this to step through cleanly in the debugger:
+# if __name__ == "__main__":
+#     for i in range(5):
+#         update(i)
