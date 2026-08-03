@@ -12,8 +12,8 @@ NRes = 400                # Grid resolution (N x N)
 R = NRes/2 - 5               # Radius of the drum head
 c = 0.2                # Speed of sound on the membrane
 dx = 1.0               # Spatial step size
-dt = 0.2               # Time step (must satisfy Courant condition: c*dt/dx < 0.707)
-damping = 0.00000        # Slight damping to help standing waves stabilize
+dt = 0.1               # Time step (must satisfy Courant condition: c*dt/dx < 0.707)
+damping = 0.00001      # Slight damping to help standing waves stabilize
 
 # Oscillator Parameters
 A = 2.0                # Amplitude of the oscillator (mm)
@@ -22,7 +22,7 @@ freq = c / wavelength  # Driving frequency f
 omega = 2 * np.pi * freq
 
 # Movement Parameters
-drift_speed = 6     # How fast the oscillator moves down the energy gradient
+drift_speed = 7     # How fast the oscillator moves down the energy gradient
 
 # ==========================================
 # 2. INITIALIZATION
