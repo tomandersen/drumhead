@@ -38,7 +38,6 @@ drum_mask = (X - NRes/2)**2 + (Y - NRes/2)**2 <= R**2
 # State matrices for the wave equation (current, previous, and next time steps)
 u = np.zeros((NRes, NRes))
 u_prev = np.zeros((NRes, NRes))
-energy_envelope = np.zeros((NRes, NRes)) # Tracks time-averaged amplitude
 
 # Start the oscillator slightly off-center so it has a gradient to follow
 osc_x, osc_y = NRes/2 + 8.0, NRes/2 + NRes/4 
@@ -68,8 +67,9 @@ ax.axis('off')
 # ==========================================
 time_step_counter = 0
 
+@profile
 def update(frame):
-    global u, u_prev, energy_envelope, osc_x, osc_y, time_step_counter
+    global u, u_prev, osc_x, osc_y, time_step_counter
     
     # Run multiple physics steps per visual frame to speed up the animation
     for _ in range(8):
@@ -86,12 +86,8 @@ def update(frame):
         # 3. Apply Boundary Conditions (clamped edges)
         u_next[~drum_mask] = 0.0
         
-        # 4. Update the Energy Envelope (Low-pass filter of squared displacement)
-        # This creates a map of the standing wave's intensity over time.
-        energy_envelope = 0.99 * energy_envelope + 0.01 * (u**2)
-        
-        # 5. Move the Oscillator (Gradient Descent on Energy)
-        # Calculate local gradient of the energy envelope around the oscillator
+        # 4. Move the Oscillator
+        # Calculate local gradient of the wave pressure around the oscillator
         ix, iy = int(osc_x), int(osc_y)
         osc_displacement = A * np.sin(omega * t)
         osc_velocity = A * omega * np.cos(omega * t)
@@ -141,8 +137,7 @@ def update(frame):
         # We only need to go a few grid points away from the oscillation center, 
         # no need to use the whole grid.  Radius of influence is 5 grid points.
         
-        footprint = np.exp(-((X - osc_x)**2 + (Y - osc_y)**2) / 2.0)
-        
+        # Footprint is calculated locally below to save CPU
         # Force the local displacement (soft blending based on footprint)
         # The oscillator will drive the wave, but no higher than its osc_displacement,
         # so u_next will be at most osc_displacement times the footprint (which is 1 at the center).
@@ -182,7 +177,22 @@ def update(frame):
             else:
                 field_addition = min(diff, 0)
 
-        u_next = u_next * (1 - footprint) + footprint * field_addition
+        # Apply the footprint ONLY to the local window (radius of 5 grid points)
+        radius = 5
+        x_min = max(0, ix - radius)
+        x_max = min(NRes, ix + radius + 1)
+        y_min = max(0, iy - radius)
+        y_max = min(NRes, iy + radius + 1)
+        
+        X_loc = X[y_min:y_max, x_min:x_max]
+        Y_loc = Y[y_min:y_max, x_min:x_max]
+        
+        footprint_loc = np.exp(-((X_loc - osc_x)**2 + (Y_loc - osc_y)**2) / 2.0)
+        
+        u_next[y_min:y_max, x_min:x_max] = (
+            u_next[y_min:y_max, x_min:x_max] * (1 - footprint_loc) + 
+            footprint_loc * field_addition
+        )
         
         # 7. Advance time
         u_prev[:] = u
