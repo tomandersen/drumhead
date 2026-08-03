@@ -12,8 +12,8 @@ NRes = 400                # Grid resolution (N x N)
 R = NRes/2 - 5               # Radius of the drum head
 c = 0.2                # Speed of sound on the membrane
 dx = 1.0               # Spatial step size
-dt = 0.1               # Time step (must satisfy Courant condition: c*dt/dx < 0.707)
-damping = 0.00001      # Slight damping to help standing waves stabilize
+dt = 0.05               # Time step (must satisfy Courant condition: c*dt/dx < 0.707)
+damping = 0.0000      # Slight damping to help standing waves stabilize
 
 # Precomputed Wave Equation Constants
 C1 = (2 - 4 * (c * dt / dx)**2) / (1 + damping * dt)
@@ -22,12 +22,12 @@ C3 = (c * dt / dx)**2 / (1 + damping * dt)
 
 # Oscillator Parameters
 A = 2.0                # Amplitude of the oscillator (mm)
-wavelength = R / 5.87765331   # Enforce at least 5 wavelengths in the radius
+wavelength = R / 1.0   # Enforce at least 5 wavelengths in the radius
 freq = c / wavelength  # Driving frequency f
 omega = 2 * np.pi * freq
 
 # Movement Parameters
-drift_speed = 7     # How fast the oscillator moves down the energy gradient
+drift_speed = 20.0    # How fast the oscillator moves down the energy gradient
 
 # ==========================================
 # 2. INITIALIZATION
@@ -73,12 +73,19 @@ ax.axis('off')
 # ==========================================
 time_step_counter = 0
 
+# Dummy profile decorator so the script runs normally when not using kernprof
+try:
+    profile
+except NameError:
+    def profile(func):
+        return func
+
 @profile
 def update(frame):
     global u, u_prev, u_next, osc_x, osc_y, time_step_counter
     
     # Run multiple physics steps per visual frame to speed up the animation
-    for _ in range(8):
+    for _ in range(64):
         time_step_counter += 1
         t = time_step_counter * dt
         
@@ -98,7 +105,8 @@ def update(frame):
         # Calculate local gradient of the wave pressure around the oscillator
         ix, iy = int(osc_x), int(osc_y)
         osc_displacement = A * np.sin(omega * t)
-        osc_velocity = A * omega * np.cos(omega * t)
+        force_x = 0.0
+        force_y = 0.0
         if 2 < ix < NRes-2 and 2 < iy < NRes-2:
             # Bjerknes Force:
             # the gradient of the pressure u_next combined with the amplitude of the driver
@@ -126,8 +134,11 @@ def update(frame):
                       
             # The instantaneous Bjerknes force is proportional to the gradient of the field 
             # times the instantaneous displacement (amplitude) of the driver.
-            force_x = -osc_displacement * grad_x
-            force_y = -osc_displacement * grad_y
+            # force_x = -osc_displacement * grad_x
+            # force_y = -osc_displacement * grad_y
+
+            force_x = grad_x
+            force_y = grad_y
             
             # Move the oscillator
             osc_x += drift_speed * force_x * dt
@@ -209,13 +220,13 @@ def update(frame):
     # Update visual plots
     im.set_array(u)
     osc_marker.set_data([osc_x], [osc_y])
-    info_text.set_text(f"Driven Drum Head\nf = {freq:.3f} Hz, X = {osc_x:.5f}, Y = {osc_y:.5f}")
+    info_text.set_text(f"Driven Drum Head\nforce = {force_x:.5f}, {force_y:.5f}, X = {osc_x:.5f}, Y = {osc_y:.5f}")
     
     return im, osc_marker, info_text
 
 # Run the animation
 # Comment out the animation for debugging:
-ani = animation.FuncAnimation(fig, update, frames=1000, interval=30, blit=True)
+ani = animation.FuncAnimation(fig, update, frames=1000, interval=50, blit=True)
 plt.show()
 
 # Add this to step through cleanly in the debugger:
