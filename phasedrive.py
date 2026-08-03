@@ -134,8 +134,16 @@ def update(frame):
                       
             # The instantaneous Bjerknes force is proportional to the gradient of the field 
             # times the instantaneous displacement (amplitude) of the driver.
-            # force_x = -osc_displacement * grad_x
-            # force_y = -osc_displacement * grad_y
+            # The quantum potential force is something like grad(|psi|^2)/|psi|:
+            psi = np.sqrt(u_next[ix, iy])
+            psi_x = np.sqrt(u_next[ix+1, iy])
+            psi_y = np.sqrt(u_next[ix, iy+1])
+            psi_x = np.sqrt(u_next[ix+1, iy])
+            psi_y = np.sqrt(u_next[ix, iy+1])
+
+            # maybe use those psi values to get the speed i need to drive it? 
+-            # force_x = -osc_displacement * grad_x
+-            # force_y = -osc_displacement * grad_y
 
             force_x = grad_x
             force_y = grad_y
