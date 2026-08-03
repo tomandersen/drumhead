@@ -15,6 +15,11 @@ dx = 1.0               # Spatial step size
 dt = 0.1               # Time step (must satisfy Courant condition: c*dt/dx < 0.707)
 damping = 0.00001      # Slight damping to help standing waves stabilize
 
+# Precomputed Wave Equation Constants
+C1 = (2 - 4 * (c * dt / dx)**2) / (1 + damping * dt)
+C2 = (1 - damping * dt) / (1 + damping * dt)
+C3 = (c * dt / dx)**2 / (1 + damping * dt)
+
 # Oscillator Parameters
 A = 2.0                # Amplitude of the oscillator (mm)
 wavelength = R / 5.87765331   # Enforce at least 5 wavelengths in the radius
@@ -38,6 +43,7 @@ drum_mask = (X - NRes/2)**2 + (Y - NRes/2)**2 <= R**2
 # State matrices for the wave equation (current, previous, and next time steps)
 u = np.zeros((NRes, NRes))
 u_prev = np.zeros((NRes, NRes))
+u_next = np.zeros((NRes, NRes))
 
 # Start the oscillator slightly off-center so it has a gradient to follow
 osc_x, osc_y = NRes/2 + 8.0, NRes/2 + NRes/4 
@@ -69,19 +75,21 @@ time_step_counter = 0
 
 @profile
 def update(frame):
-    global u, u_prev, osc_x, osc_y, time_step_counter
+    global u, u_prev, u_next, osc_x, osc_y, time_step_counter
     
     # Run multiple physics steps per visual frame to speed up the animation
     for _ in range(8):
         time_step_counter += 1
         t = time_step_counter * dt
         
-        # 1. Calculate the spatial second derivatives (Laplacian) using slicing for speed
-        laplacian = np.zeros((NRes, NRes))
-        laplacian[1:-1, 1:-1] = (u[2:, 1:-1] + u[:-2, 1:-1] + u[1:-1, 2:] + u[1:-1, :-2] - 4*u[1:-1, 1:-1]) / dx**2
-        
-        # 2. Update the wave equation (Verlet integration with damping)
-        u_next = (2 * u - u_prev * (1 - damping * dt) + (c * dt)**2 * laplacian) / (1 + damping * dt)
+        # 1 & 2. Update the wave equation (Vectorized Verlet integration)
+        # We pre-calculated the algebra to combine the laplacian and verlet steps,
+        # which massively reduces memory allocations and operations.
+        u_next[1:-1, 1:-1] = (
+            C1 * u[1:-1, 1:-1]
+            - C2 * u_prev[1:-1, 1:-1]
+            + C3 * (u[2:, 1:-1] + u[:-2, 1:-1] + u[1:-1, 2:] + u[1:-1, :-2])
+        )
         
         # 3. Apply Boundary Conditions (clamped edges)
         u_next[~drum_mask] = 0.0
@@ -178,7 +186,7 @@ def update(frame):
                 field_addition = min(diff, 0)
 
         # Apply the footprint ONLY to the local window (radius of 5 grid points)
-        radius = 5
+        radius = 9
         x_min = max(0, ix - radius)
         x_max = min(NRes, ix + radius + 1)
         y_min = max(0, iy - radius)
